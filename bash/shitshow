@@ -1,0 +1,67 @@
+#!/bin/bash
+# {{{ Header
+#########################################################################################################
+# Title       :                                                                                         #
+# Description :                                                                                         #
+# Author      : Brian Braunstein <bbraunstein@modusagency.com>                                          #
+# Created     :                                                                                         #
+# Modified    :                                                                                         #
+#########################################################################################################
+#}}}
+# {{{ GLOBAL variables
+_curl=$(which curl)
+_grep=$(which grep)
+_sed=$(which sed)
+#}}}
+
+# {{{ busy
+function busy() {
+echo -e " .----------------.              "
+echo -e " ;----------------;              "
+echo -e " | ~~ .------.    |              "
+echo -e " |   /        \   |              "
+echo -e " |  /          \  |              "
+echo -e " |  |          |  |  ,----.      "
+echo -e " |   \ ,    , /   | =|____|=    ${1} "
+echo -e " '---,########,---'  (---(       "
+echo -e "    /##'    '##\      )---)      "
+echo -e "    |##,    ,##|     (---(       "
+echo -e "     \'######'/       '---\`      "
+echo -e "      \\\`\"\"\"\"\`/                   "
+echo -e "       |\`\"\"\`|                    "
+echo -e "     .-|    |-.                  "
+echo -e "    /  '    '  \                 "
+echo -e "    '----------'                 "
+
+}
+# }}}
+# {{{ free
+function free() {
+echo -e " .----------------.              "
+echo -e " ;----------------;              "
+echo -e " | ~~             |              "
+echo -e " |                |              "
+echo -e " |                |              "
+echo -e " |                |  ,----.      "
+echo -e " |                | =|____|=    ${1} "
+echo -e " '---,__----__,---'  (---(       "
+echo -e "    /          \      )---)      "
+echo -e "    |          |     (---(       "
+echo -e "     \        /       '---\`      "
+echo -e "      \\\`\"\"\"\"\`/                   "
+echo -e "       |\`\"\"\`|                    "
+echo -e "     .-|    |-.                  "
+echo -e "    /  '    '  \                 "
+echo -e "    '----------'                 "
+
+}
+# }}}
+
+_status=$(${_curl} -s shitshow.modus-sandbox.com | ${_grep} "Toilet" | ${_sed} 's/<[^>]*>//g;s/^[ \t]*//')
+
+if [ "${_status/Toilet is /}" == "FREE" ]
+then
+  free "\e[1m\e[32m${_status} :)\e[0m"
+else
+  busy "\e[1m\e[31mOccupied! :(\e[0m"
+fi

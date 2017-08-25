@@ -1,0 +1,117 @@
+#!/bin/bash
+# {{{ Header
+#########################################################################################################
+# Title       :                                                                                         #
+# Description :                                                                                         #
+# Author      : Brian Braunstein <bbraunstein@modusagency.com>                                          #
+# Created     :                                                                                         #
+# Modified    :                                                                                         #
+#########################################################################################################
+#}}}
+# {{{ GLOBAL variables
+
+#}}}
+
+
+# {{{ functions
+# {{{ main()
+function main() {
+
+  # Cycle through list of nodes
+  for i in "${NODES[@]}"; do
+    ping -c 1 "${i}" > /dev/null 2>&1 
+  
+    if [ $? -ne 0 ]; then
+      echo -e "\e[1;31mHost: ${i} is unreachable!\e[0m"
+      echo "${i}" >> fail.log
+      continue
+    fi
+  
+    distro=$(ssh -o StrictHostKeyChecking=no -t root@"${i}" "uname")
+    case $distro in
+      $'Darwin\r') deploy_osx ${i};; # Too lazy to attempt the mac2unix conversion
+      Linux)  deploy_redhat "${i}";;
+      *);;
+    esac
+  
+  done
+}
+#}}}
+# {{{ deploy_redhat() 
+function deploy_redhat() {
+  
+  echo -e "\e[32mDeploying on host: $1...\e[0m"
+  ssh -o StrictHostKeyChecking=no -t root@"$1" "ver=\$(cat /etc/redhat-release | sed -r 's/^[^0-9]*([0-9]+).*/\1/');
+                                                if [ "\${ver}" == '5' ]; then wget https://yum.puppetlabs.com/puppetlabs-release-pc1-el-\${ver}.noarch.rpm && rpm -i puppetlabs-release-pc1-el-\${ver}.noarch.rpm;
+                                                else
+                                                  yum -y install https://yum.puppetlabs.com/puppetlabs-release-pc1-el-\${ver}.noarch.rpm;
+                                                fi
+                                                yum -y install puppet-agent;
+                                                export PATH=/opt/puppetlabs/bin:\$PATH;
+                                                puppet config set server vm-foreman.modusagency.com;
+                                                puppet resource service puppet ensure=running enable=true;"
+  
+}
+#}}}
+# {{{ deploy_osx()
+function deploy_osx() {
+
+  echo -e "\e[32mDeploying on host: $1...\e[0m"
+  ssh -o StrictHostKeyChecking=no -t root@"$1" "if [ -d /opt/puppetlabs/ ]; then exit 5;
+                    else
+                      ver=\$(sw_vers -productVersion | awk -F'.' '{print \$1\".\"\$2}');pupagent=puppet-agent-1.10.4-1;
+                      curl https://downloads.puppetlabs.com/mac/\${ver}/PC1/x86_64/\${pupagent}.osx\${ver}.dmg > \${pupagent}.osx\${ver}.dmg || exit 10;
+                      hdiutil attach -quiet -nobrowse \${pupagent}.osx\${ver}.dmg || exit 15;
+                      installer -pkg /Volumes/\${pupagent}.osx\${ver}/\${pupagent}-installer.pkg -target / || exit 20;
+                      hdiutil detach /Volumes/\${pupagent}.osx\${ver}/ || exit 25;
+                      export PATH=/opt/puppetlabs/bin:\$PATH || exit 30;
+                      puppet config set server vm-foreman.modusagency.com || exit 35;
+                      puppet resource service puppet ensure=stopped enable=false || exit 35;
+                      rm -f \${pupagent}.osx\${ver}.dmg || exit 40;
+                    fi"
+  
+  # There are more rooms for errors with the osx deployment.
+  # The logging is more verbose in order to prevent any 
+  # mounting issues, i.e. ghost mounts
+
+  case "$?" in
+    0)  echo -e "\e[1;32mCompleted deployment on: $1\e[0m" ;;
+    5)  echo -e "\e[33mPuppet is already present. Skipping.\e[0m" ;;
+    10) echo -e "\e[31mUnable to download image file.\\e[0m" ;;
+    15) echo -e "\e[31mUnable to mount disk image.\e[0m";;
+    20) echo -e "\e[31mUnable to install at target.\e[0m";;
+    25) echo -e "\e[31mUnable to unmout disk image.\e[0m";;
+    30) echo -e "\e[31mCan't set PATH for /opt/puppetlabs/bin:\$PATH\e[0m";;
+    35) echo -e "\e[31mUnable to modify puppet settings. Check \$PATH is correctly set.\e[0m";;
+    40) echo -e "\e[31mUnable to delete disk image file.\e[0m";;
+  esac 
+}
+#}}}
+# {{{ usage()
+function usage() {
+  printf "Usage: $0 [-t] host1,host2...hostN [OPTIONS]\n"
+  printf "Options:\n"
+  printf "  -h                Displays this help\n"
+  printf "  -H host           Target hosts. Multiple hosts can be specified by separating IPs/hostnames with a comma (,)\n"
+  exit 0
+}
+#}}}
+#}}}
+
+
+# {{{ getopts
+# parse for runtime parameters, if any
+# value=${OPTARG} for variable assignment
+while getopts ':H:h' param
+do
+  case "${param}" in
+    H) NODES=${OPTARG//,/ };;
+    h) usage; exit 1;;      # Display help
+    \?) usage; exit 1;;
+    :) echo "Option -$OPTARG requires an argument." >&2; exit 1;; #If an argument is empty,
+  esac
+done
+shift ${OPTIND-1}
+#}}}
+
+main

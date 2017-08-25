@@ -1,0 +1,25 @@
+#!/bin/bash
+# {{{ Header
+#########################################################################################################
+# Title       :                                                                                         #
+# Description :                                                                                         #
+# Author      : Brian Braunstein <bbraunstein@modusagency.com>                                          #
+# Created     :                                                                                         #
+# Modified    :                                                                                         #
+#########################################################################################################
+#}}}
+# {{{ GLOBAL variables
+_curl=$(which curl)
+_grep=$(which grep)
+_sed=$(which sed)
+#}}}
+
+
+_status=$(${_curl} -s shitshow.modus-sandbox.com | ${_grep} "Toilet" | ${_sed} 's/<[^>]*>//g;s/^[ \t]*//')
+
+if [ "${_status/Toilet is /}" == "FREE" ]
+then
+  echo -e "\e[1m\e[32m${_status} :)"
+else
+  echo -e "\e[1m\e[31mOccupied! :("
+fi
